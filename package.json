@@ -1,0 +1,47 @@
+{
+  "name": "agent-ablation",
+  "version": "0.1.0",
+  "description": "Leave-one-out ablation testing for multi-agent decision systems — find out which agents' findings actually change the outcome.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "multi-agent",
+    "ai-agents",
+    "ablation",
+    "explainability",
+    "llm-agents",
+    "agent-orchestration",
+    "interpretability"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AyushCipher/agent-ablation.git"
+  },
+  "author": "Ayush Verma <ayushv3533e@gmail.com>",
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.10"
+  }
+}
