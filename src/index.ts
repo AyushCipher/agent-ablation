@@ -21,6 +21,12 @@ export interface AblationResult<TVerdict> {
   loadBearingRatio: number;
 }
 
+export interface BatchAblationSummary {
+  cases: number;
+  averageLoadBearingRatio: number;
+  perAgentInfluence: Record<string, number>;
+}
+
 function defaultEquals<TVerdict>(a: TVerdict, b: TVerdict): boolean {
   return a === b;
 }
@@ -64,4 +70,48 @@ export function runAblation<TVerdict>(
     totalAgents,
     loadBearingRatio,
   };
+}
+
+/**
+ * Runs `runAblation` over a batch of independent cases and aggregates the results:
+ * the mean load-bearing ratio across cases, and, per agent ID, the fraction of the
+ * cases containing that agent in which removing it flipped the verdict.
+ */
+export function batchAblation<TVerdict>(
+  cases: Finding[][],
+  decide: DecisionFn<TVerdict>,
+  equals: (a: TVerdict, b: TVerdict) => boolean = defaultEquals
+): { results: AblationResult<TVerdict>[]; summary: BatchAblationSummary } {
+  const results = cases.map((findings) => runAblation(findings, decide, equals));
+
+  const appearances = new Map<string, number>();
+  const changedCounts = new Map<string, number>();
+
+  for (const result of results) {
+    for (const perAgent of result.perAgent) {
+      const id = perAgent.removedAgentId;
+      appearances.set(id, (appearances.get(id) ?? 0) + 1);
+      if (perAgent.changed) {
+        changedCounts.set(id, (changedCounts.get(id) ?? 0) + 1);
+      }
+    }
+  }
+
+  const perAgentInfluence: Record<string, number> = {};
+  for (const [id, count] of appearances) {
+    perAgentInfluence[id] = (changedCounts.get(id) ?? 0) / count;
+  }
+
+  const averageLoadBearingRatio =
+    results.length === 0
+      ? 0
+      : results.reduce((sum, r) => sum + r.loadBearingRatio, 0) / results.length;
+
+  const summary: BatchAblationSummary = {
+    cases: cases.length,
+    averageLoadBearingRatio,
+    perAgentInfluence,
+  };
+
+  return { results, summary };
 }
