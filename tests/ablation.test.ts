@@ -98,6 +98,20 @@ describe("runAblation", () => {
     expect(withCustomEquals.perAgent.every((p) => p.changed === false)).toBe(true);
     expect(withCustomEquals.loadBearingRatio).toBe(0);
   });
+
+  it("does not mutate the input findings array", () => {
+    const findings: Finding[] = [
+      { agentId: "a", score: 12 },
+      { agentId: "b", score: 88 },
+      { agentId: "c", score: 40 },
+    ];
+    const snapshot = JSON.parse(JSON.stringify(findings));
+
+    runAblation(findings, (fs) => fs.reduce((sum, f) => sum + f.score, 0));
+
+    expect(findings).toEqual(snapshot);
+    expect(findings.length).toBe(3);
+  });
 });
 
 describe("batchAblation", () => {
