@@ -72,6 +72,71 @@ describe("runAblation", () => {
     expect(result.loadBearingCount).toBe(5);
     expect(result.loadBearingRatio).toBe(1);
   });
+
+  it("uses a supplied equals function instead of reference equality", () => {
+    // decide() returns a fresh object every call, so under default `===` every
+    // ablation spuriously reads as "changed" even when the meaningful content
+    // (the label) is identical.
+    const decide = (findings: Finding[]): { label: SimpleVerdict } => ({
+      label:
+        findings.reduce((sum, f) => sum + f.score, 0) / findings.length >= 50
+          ? "auto_decline"
+          : "auto_approve",
+    });
+
+    const findings: Finding[] = [
+      { agentId: "a", score: 5 },
+      { agentId: "b", score: 8 },
+      { agentId: "c", score: 6 },
+    ];
+
+    const withDefaultEquals = runAblation(findings, decide);
+    expect(withDefaultEquals.perAgent.every((p) => p.changed === true)).toBe(true);
+    expect(withDefaultEquals.loadBearingRatio).toBe(1);
+
+    const withCustomEquals = runAblation(findings, decide, (a, b) => a.label === b.label);
+    expect(withCustomEquals.perAgent.every((p) => p.changed === false)).toBe(true);
+    expect(withCustomEquals.loadBearingRatio).toBe(0);
+  });
+});
+
+describe("batchAblation", () => {
+  it("computes averageLoadBearingRatio and perAgentInfluence correctly", () => {
+    // Simple OR-style decide: 'flag' if any finding scores >= 50, else 'clear'.
+    const decide = (findings: Finding[]): "flag" | "clear" =>
+      findings.some((f) => f.score >= 50) ? "flag" : "clear";
+
+    const cases: Finding[][] = [
+      // Case 1: only A is >=50. Removing A flips 'flag'->'clear' (A load-bearing).
+      // Removing B leaves A, still 'flag' (B not load-bearing). Ratio 1/2.
+      [
+        { agentId: "A", score: 80 },
+        { agentId: "B", score: 10 },
+      ],
+      // Case 2: both low, baseline 'clear'. Removing either leaves the other
+      // still low, so 'clear' either way. Ratio 0/2.
+      [
+        { agentId: "A", score: 5 },
+        { agentId: "B", score: 5 },
+      ],
+      // Case 3: both high, baseline 'flag'. Removing either leaves the other
+      // still >=50, so 'flag' either way. Ratio 0/2.
+      [
+        { agentId: "A", score: 60 },
+        { agentId: "B", score: 70 },
+      ],
+    ];
+
+    const { results, summary } = batchAblation(cases, decide);
+
+    expect(results).toHaveLength(3);
+    expect(summary.cases).toBe(3);
+    // (0.5 + 0 + 0) / 3
+    expect(summary.averageLoadBearingRatio).toBeCloseTo(1 / 6, 10);
+    // A: load-bearing in 1 of 3 cases; B: load-bearing in 0 of 3 cases.
+    expect(summary.perAgentInfluence.A).toBeCloseTo(1 / 3, 10);
+    expect(summary.perAgentInfluence.B).toBe(0);
+  });
 });
 
 describe("SentryMesh worked example (real six-case ablation from the SentryMesh README)", () => {
