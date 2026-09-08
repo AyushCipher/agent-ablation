@@ -1,5 +1,8 @@
 # agent-ablation
 
+[![CI](https://github.com/AyushCipher/agent-ablation/actions/workflows/ci.yml/badge.svg)](https://github.com/AyushCipher/agent-ablation/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/agent-ablation.svg)](https://www.npmjs.com/package/agent-ablation)
+
 Leave-one-out ablation testing for multi-agent decision systems. You have a set of
 per-agent findings (scores, confidences, whatever your pipeline produces) and a
 function that turns those findings into a verdict. `agent-ablation` answers one
