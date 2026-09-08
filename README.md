@@ -59,6 +59,43 @@ console.log(summary.averageLoadBearingRatio);
 console.log(summary.perAgentInfluence); // { transaction_pattern: 0.17, identity_signal: 0.83, ... }
 ```
 
+## Using with LangGraph
+
+If you are orchestrating multi-agent systems with LangGraph, `fromLangGraphMessages` provides a zero-dependency convenience mapper for common LangGraph message shapes (this is a structural mapper, not an official LangGraph integration). It extracts named agent messages from `state.messages` and converts them into `Finding[]`:
+
+```typescript
+import { runAblation, fromLangGraphMessages, type Finding } from "agent-ablation";
+
+// In your LangGraph supervisor node / decision step:
+function evaluateState(state: { messages: any[] }) {
+  // Maps named specialist messages to Finding[]
+  const findings = fromLangGraphMessages(state.messages, {
+    scoreOf: (msg) => (msg.content as any).score,
+    confidenceOf: (msg) => (msg.content as any).confidence,
+  });
+
+  const decide = (fs: Finding[]) => {
+    const risk = 1 - fs.reduce((p, f) => p * (1 - f.score / 100), 1);
+    return risk >= 0.7 ? "decline" : "approve";
+  };
+
+  const result = runAblation(findings, decide);
+  return result;
+}
+```
+
+For arbitrary custom structures or telemetry traces, `fromRecords()` is also available to map any record array with custom extraction callbacks:
+
+```typescript
+import { fromRecords } from "agent-ablation";
+
+const findings = fromRecords(customAuditRecords, {
+  agentId: (r) => r.specialistId,
+  scoreOf: (r) => r.riskScore,
+  confidenceOf: (r) => r.confidenceLevel, // optional
+});
+```
+
 ## Worked example: reproducing SentryMesh's 33% multi-signal-share finding
 
 [SentryMesh](https://github.com/AyushCipher/Sentry-Mesh) is a four-specialist
@@ -166,6 +203,31 @@ function batchAblation<TVerdict>(
   decide: DecisionFn<TVerdict>,
   equals?: (a: TVerdict, b: TVerdict) => boolean
 ): { results: AblationResult<TVerdict>[]; summary: BatchAblationSummary };
+
+interface LangGraphAgentMessage {
+  name?: string | null;
+  content?: unknown;
+  [key: string]: unknown;
+}
+
+interface LangGraphAdapterOptions<TMessage extends LangGraphAgentMessage = LangGraphAgentMessage> {
+  scoreOf: (message: TMessage) => number;
+  confidenceOf?: (message: TMessage) => number | undefined;
+}
+
+function fromLangGraphMessages<TMessage extends LangGraphAgentMessage = LangGraphAgentMessage>(
+  messages: readonly TMessage[] | TMessage[],
+  options: LangGraphAdapterOptions<TMessage>
+): Finding[];
+
+function fromRecords<T>(
+  records: readonly T[] | T[],
+  options: {
+    agentId: (record: T, index: number) => string;
+    scoreOf: (record: T, index: number) => number;
+    confidenceOf?: (record: T, index: number) => number | undefined;
+  }
+): Finding[];
 ```
 
 `equals` defaults to `===`. If `TVerdict` is an object (or anything else compared
