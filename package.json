@@ -1,6 +1,6 @@
 {
   "name": "agent-ablation",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Leave-one-out ablation testing for multi-agent decision systems — find out which agents' findings actually change the outcome.",
   "type": "module",
   "main": "./dist/index.cjs",
